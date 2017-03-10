@@ -4,6 +4,7 @@ import json
 import socket
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
+import simplejson
 
 
 class StringGenerator(object):
@@ -78,6 +79,37 @@ class StringGenerator(object):
         self.ip_u = ip_u
         self.card_number = card_number
         return 'OK'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    @cherrypy.tools.json_in()
+    def redeem_V(self):
+
+        input_json = cherrypy.request.json
+        plain_message = input_json['message']
+        sign = input_json['sig']
+        payment_chain = input_json['ci']
+        payment_value = input_json['i']
+        payment_one = input_json['c0']
+
+        authenthic = None
+
+        rsa_key = RSA.importKey(self.pub_key_u)
+        verifier = PKCS1_v1_5.new(rsa_key)
+        h = SHA256.new(plain_message)
+
+        if verifier.verify(h, sign):
+            authenthic='Ok'
+        else:
+            authenthic='ERROR'
+
+        sig_hash = SHA256.new(payment_chain.encode('utf-8'))
+
+        for i in range(1, payment_value):
+            sig_hash = SHA256.new(sig_hash.encode('utf-8'))
+
+        if sig_hash==payment_one:
+            print('All Ok')
 
 
 if __name__ == '__main__':
