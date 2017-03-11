@@ -14,6 +14,10 @@ class StringGenerator(object):
         self.identity_u = ''
         self.ip_u = ''
         self.card_number = ''
+        
+    @cherrypy.expose
+    def index(self):
+        return "Broker Server"
 
     def get_serializable_keys(self):
         """Returns a tuple (private_key, public_key) as string objects encoded in
