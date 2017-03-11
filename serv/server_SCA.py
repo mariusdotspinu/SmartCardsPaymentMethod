@@ -1,10 +1,11 @@
 import json
 import socket
-import hashlib
+import base64
 
 import cherrypy
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Hash import SHA1
+from Crypto.Signature import PKCS1_v1_5
 
 
 class Broker(object):
@@ -45,7 +46,8 @@ class Broker(object):
             return json.dumps({'ERROR': "Invalid card number"})
 
         # build RSA signature over
-        hash_builder = hashlib.sha1()
+
+        hash_builder = SHA1.new()
         hash_builder.update("Broker".encode())
         hash_builder.update(self.identity_u.encode())
         hash_builder.update(self.ip_u.encode())
@@ -54,10 +56,10 @@ class Broker(object):
         hash_builder.update(exp_date.encode())
         hash_builder.update(balance.encode())
 
-        signature = hash_builder.hexdigest()
         private_key_obj = RSA.import_key(self.key.exportKey())
-        cipher_rsa = PKCS1_OAEP.new(private_key_obj)
-        encrypted_signature = cipher_rsa.encrypt(signature.encode())
+        signer = PKCS1_v1_5.new(private_key_obj)
+        signature = signer.sign(hash_builder)
+        encrypted_signature = base64.b64encode(signature)
 
         # build certificate
         certificate = {
@@ -68,10 +70,9 @@ class Broker(object):
             'key_U': self.pub_key_u,
             'exp_date': exp_date,
             'balance': balance,
-            'signature': signature,
-            'encrypted': str(encrypted_signature)
-            # TODO: sterge signature
+            'signature': encrypted_signature.decode("utf-8")
         }
+
         # TODO: cripteaza JSONUL
         return json.dumps(certificate)
 

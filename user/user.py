@@ -1,8 +1,11 @@
 import json
 import requests
 import socket
+import base64
+
+from Crypto.Hash import SHA1
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature import PKCS1_v1_5
 
 
 def generate_rsa_keys(length):
@@ -22,7 +25,7 @@ if __name__ == "__main__":
     ip = socket.gethostbyname(socket.gethostname())
 
     # call receive_user_info
-    url = "http://192.168.0.16:8080/receive_user_info"
+    url = "http://192.168.0.10:8080/receive_user_info"
     result = requests.get(url, params={
         "public_key_u": keys[1],
         "identity_u": "USER",
@@ -32,14 +35,29 @@ if __name__ == "__main__":
     print(result.text)
 
     # call send_user_certificate
-    url = "http://192.168.0.16:8080/send_user_certificate"
+    url = "http://192.168.0.10:8080/send_user_certificate"
     result = json.loads(requests.get(url).text)
     print(json.dumps(result, sort_keys=True, indent=4))
 
-    # decrypt package
-    pub_key_b = RSA.import_key(result["key_B"])
-    cipher_rsa = PKCS1_OAEP.new(pub_key_b)
-    decrypted_hash = cipher_rsa.decrypt(result["encrypted"].encode())
-    print(decrypted_hash)
-    # TODO: incorrect length decrypt
-    print(decrypted_hash)
+    # build received info's hash
+
+    # build RSA signature over
+
+    hash_builder = SHA1.new()
+    hash_builder.update(result["identity_B"].encode())
+    hash_builder.update(result["identity_U"].encode())
+    hash_builder.update(result["ip_U"].encode())
+    hash_builder.update(result["key_B"].encode())
+    hash_builder.update(result["key_U"].encode())
+    hash_builder.update(result["exp_date"].encode())
+    hash_builder.update(result["balance"].encode())
+
+    # check signature
+    signature_decoded = base64.b64decode(result["signature"])
+    pub_key_b = RSA.import_key(result["key_B"].encode())
+    verifier = PKCS1_v1_5.new(pub_key_b)
+
+    if verifier.verify(hash_builder, signature_decoded):
+        print("Authenticated")
+    else:
+        print("Not authenticated")
