@@ -10,7 +10,10 @@ from Crypto.Signature import PKCS1_v1_5
 
 class Broker(object):
     def __init__(self):
+        # generate RSA keys
         self.key = RSA.generate(2048)
+
+        # initialise values
         self.pub_key_u = ''
         self.identity_u = ''
         self.ip_u = ''
@@ -30,23 +33,28 @@ class Broker(object):
         # get account information
         balance = None
         exp_date = None
-        with open('credentials.txt') as f:
-            lines = f.readlines()
-        for line in lines:
-            aux = line.split(" ")
-            if aux[0] == self.card_number:
-                # found card number, load information
-                balance = aux[1]
-                exp_date = aux[2][:-1]
-                break
+        try:
+            fd = open("credentials.txt", "r")
+            for line in fd:
+                aux = line.split(" ")
+                if aux[0] == self.card_number:
+                    # found card number, load information
+                    balance = aux[1]
+                    exp_date = aux[2][:-1]
+                    break
+            fd.close()
+        except IOError as e:
+            return json.dumps({
+                "error": "Could not open credentials.txt",
+                "Exception": e
+            })
 
         if self.pub_key_u == '' or self.identity_u == '' \
                 or self.ip_u == '' or self.card_number == '':
             # something went wrong, return error
-            return json.dumps({'ERROR': "Invalid card number"})
+            return json.dumps({'error': "Invalid card number"})
 
-        # build RSA signature over
-
+        # build RSA signature over data
         hash_builder = SHA1.new()
         hash_builder.update("Broker".encode())
         hash_builder.update(self.identity_u.encode())
@@ -56,6 +64,7 @@ class Broker(object):
         hash_builder.update(exp_date.encode())
         hash_builder.update(balance.encode())
 
+        # encrypt hash with Broker's private key
         private_key_obj = RSA.import_key(self.key.exportKey())
         signer = PKCS1_v1_5.new(private_key_obj)
         signature = signer.sign(hash_builder)

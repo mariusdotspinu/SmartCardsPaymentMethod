@@ -25,7 +25,7 @@ if __name__ == "__main__":
     ip = socket.gethostbyname(socket.gethostname())
 
     # call receive_user_info
-    url = "http://192.168.0.10:8080/receive_user_info"
+    url = "http://192.168.0.16:8080/receive_user_info"
     result = requests.get(url, params={
         "public_key_u": keys[1],
         "identity_u": "USER",
@@ -35,14 +35,11 @@ if __name__ == "__main__":
     print(result.text)
 
     # call send_user_certificate
-    url = "http://192.168.0.10:8080/send_user_certificate"
+    url = "http://192.168.0.16:8080/send_user_certificate"
     result = json.loads(requests.get(url).text)
     print(json.dumps(result, sort_keys=True, indent=4))
 
-    # build received info's hash
-
-    # build RSA signature over
-
+    # build hash
     hash_builder = SHA1.new()
     hash_builder.update(result["identity_B"].encode())
     hash_builder.update(result["identity_U"].encode())
@@ -57,7 +54,7 @@ if __name__ == "__main__":
     pub_key_b = RSA.import_key(result["key_B"].encode())
     verifier = PKCS1_v1_5.new(pub_key_b)
 
+    authenticated = False
     if verifier.verify(hash_builder, signature_decoded):
-        print("Authenticated")
-    else:
-        print("Not authenticated")
+        authenticated = True
+
