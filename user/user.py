@@ -24,15 +24,15 @@ def generate_secret():
 
 
 def generate_hash_chain(n):
-    hash_chain=list()
+    hash_chain = list()
 
-    secret=generate_secret()
+    secret = generate_secret()
     hash_chain.append(secret)
 
-    for i in range(0,n):
+    for i in range(0, n):
         h_builder = SHA1.new()
         h_builder.update(secret)
-        secret=h_builder.hexdigest()
+        secret = h_builder.hexdigest()
         hash_chain.append(secret)
 
     return hash_chain
@@ -80,9 +80,9 @@ if __name__ == "__main__":
         authenticated = True
 
     if authenticated:
-        n = 100
-        hash_list = generate_hash_chain(n)
-        c0 = hash_list[n-1]
+        number = 100
+        hash_list = generate_hash_chain(number)
+        c0 = hash_list[number - 1]
         date = datetime.datetime.now()
         date = date.strftime("%Y-%m-%d")
         vendor_identity = 'Seller'
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         hash_commit.update(base64.b64encode(c_u))
         hash_commit.update(c0)
         hash_commit.update(date.encode())
-        hash_commit.update(n)
+        hash_commit.update(number)
 
         private_key_obj = RSA.import_key(keys[0])
         signer = PKCS1_v1_5.new(private_key_obj)
@@ -104,10 +104,6 @@ if __name__ == "__main__":
             'c_u': c_u.decode('utf-8'),
             'c0': c0,
             'date': date,
-            'info': n,
+            'info': number,
             'sign': encrypted_signature.decode('utf-8')
         }
-
-
-
-
