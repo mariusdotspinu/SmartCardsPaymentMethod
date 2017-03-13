@@ -31,7 +31,7 @@ def generate_hash_chain(n):
 
     for i in range(0, n):
         h_builder = SHA1.new()
-        h_builder.update(secret)
+        h_builder.update(str(secret).encode())
         secret = h_builder.hexdigest()
         hash_chain.append(secret)
 
@@ -43,9 +43,11 @@ if __name__ == "__main__":
 
     # get ip
     ip = socket.gethostbyname(socket.gethostname())
+    ip_vendor = "http://192.168.0.10:30045"
+    ip_broker = "http://192.168.0.10:60045"
 
     # call receive_user_info
-    url = "http://192.168.0.16:8080/receive_user_info"
+    url = ip_broker + "/receive_user_info"
     keys = generate_rsa_keys(2048)
     c_u = requests.get(url, params={
         "public_key_u": keys[1],
@@ -56,7 +58,7 @@ if __name__ == "__main__":
     print(c_u.text)
 
     # call send_user_certificate
-    url = "http://192.168.0.16:8080/send_user_certificate"
+    url = ip_broker + "/send_user_certificate"
     c_u = json.loads(requests.get(url).text)
     print(json.dumps(c_u, sort_keys=True, indent=4))
 
@@ -89,10 +91,10 @@ if __name__ == "__main__":
 
         hash_commit = SHA1.new()
         hash_commit.update(vendor_identity.encode())
-        hash_commit.update(base64.b64encode(c_u))
-        hash_commit.update(c0)
+        hash_commit.update(json.dumps(c_u).encode())
+        hash_commit.update(str(c0).encode())
         hash_commit.update(date.encode())
-        hash_commit.update(number)
+        hash_commit.update(str(number).encode())
 
         private_key_obj = RSA.import_key(keys[0])
         signer = PKCS1_v1_5.new(private_key_obj)
@@ -101,9 +103,16 @@ if __name__ == "__main__":
 
         commit_u = {
             'vendor_identity': vendor_identity,
-            'c_u': c_u.decode('utf-8'),
+            'c_u': c_u,
             'c0': c0,
             'date': date,
             'info': number,
             'sign': encrypted_signature.decode('utf-8')
         }
+
+        # call check_commit from vendor
+
+        url = ip_vendor + "/check_commit"
+        c_u = requests.get(url, params={
+            "commit_v": json.dumps(commit_u, sort_keys=True, indent=4)
+        })

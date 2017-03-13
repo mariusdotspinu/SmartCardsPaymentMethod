@@ -127,4 +127,5 @@ class Broker(object):
 
 if __name__ == '__main__':
     cherrypy.server.socket_host = socket.gethostbyname(socket.gethostname())
+    cherrypy.config.update({'server.socket_port': 60045})
     cherrypy.quickstart(Broker())
