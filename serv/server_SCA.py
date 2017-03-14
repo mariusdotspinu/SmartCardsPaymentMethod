@@ -18,6 +18,16 @@ class Broker(object):
         self.identity_u = ''
         self.ip_u = ''
         self.card_number = ''
+        self.commit_u = {}
+        self.payments_today = []
+        self.credentials = {}
+
+        fd = open("credentials.txt", "r")
+        for line in fd:
+            aux = line.split(" ")
+            self.credentials[str(aux[0])] = [aux[1],aux[2][:-1]]
+
+        fd.close()
 
     @cherrypy.expose
     def index(self):
@@ -31,23 +41,9 @@ class Broker(object):
     @cherrypy.expose
     def send_user_certificate(self):
         # get account information
-        balance = None
-        exp_date = None
-        try:
-            fd = open("credentials.txt", "r")
-            for line in fd:
-                aux = line.split(" ")
-                if aux[0] == self.card_number:
-                    # found card number, load information
-                    balance = aux[1]
-                    exp_date = aux[2][:-1]
-                    break
-            fd.close()
-        except IOError as e:
-            return json.dumps({
-                "error": "Could not open credentials.txt",
-                "Exception": e
-            })
+
+        balance = self.credentials[self.card_number][0]
+        exp_date = self.credentials[self.card_number][1]
 
         if self.pub_key_u == '' or self.identity_u == '' \
                 or self.ip_u == '' or self.card_number == '':
@@ -82,7 +78,6 @@ class Broker(object):
             'signature': encrypted_signature.decode("utf-8")
         }
 
-        # TODO: cripteaza JSONUL
         return json.dumps(certificate)
 
     @cherrypy.expose
@@ -96,33 +91,51 @@ class Broker(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     @cherrypy.tools.json_in()
-    def redeem_vendor(self):
-        # TODO: fix this (not working atm)
-        input_json = cherrypy.request.json
-        plain_message = input_json['message']
-        sign = input_json['sig']
-        payment_chain = input_json['ci']
-        payment_value = input_json['i']
-        payment_one = input_json['c0']
+    def redeem_vendor(self, commit_u, last_pay, last_pay_index):
+
+        x = json.loads(commit_u)
+        c_u = x["c_u"]
+        sign = base64.b64decode(x["sign"])
+        payment_chain = last_pay
+        payment_value = last_pay_index
+        payment_one = x["c0"]
 
         authentic = None
 
         rsa_key = RSA.importKey(self.pub_key_u)
         verifier = PKCS1_v1_5.new(rsa_key)
-        h = SHA256.new(plain_message)
 
-        if verifier.verify(h, sign):
-            authentic = 'Ok'
+        # build hash commit u
+
+        hash_builder_commit_u = SHA1.new()
+        hash_builder_commit_u.update(x["c0"].encode())
+        hash_builder_commit_u.update(json.dumps(x["c_u"]).encode())
+        hash_builder_commit_u.update(x["date"].encode())
+        hash_builder_commit_u.update(str(x["info"]).encode())
+        hash_builder_commit_u.update(x["vendor_identity"].encode())
+
+        if verifier.verify(hash_builder_commit_u, sign):
+            authentic = "Ok"
+
         else:
-            authentic = 'ERROR'
+            authentic = "Error"
 
-        sig_hash = SHA256.new(payment_chain.encode('utf-8'))
+        if c_u in self.payments_today:
+            authentic = "Error"
+        else:
+            self.payments_today.append(c_u)
 
-        for i in range(1, payment_value):
-            sig_hash = SHA256.new(sig_hash.encode('utf-8'))
+        if authentic == "Ok":
 
-        if sig_hash == payment_one:
-            print('All Ok')
+            for i in range(0, int(payment_value)):
+                h_builder = SHA1.new()
+                h_builder.update(str(payment_chain).encode())
+                payment_chain = h_builder.hexdigest()
+
+            if payment_chain == payment_one:
+                print('All Ok')
+                self.credentials[self.card_number][0] = str(int(self.credentials[self.card_number][0]) -
+                                                            int(payment_value))
 
 
 if __name__ == '__main__':

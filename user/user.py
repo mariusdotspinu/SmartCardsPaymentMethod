@@ -5,6 +5,7 @@ import base64
 import uuid
 import datetime
 
+
 from Crypto.Hash import SHA1
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -55,11 +56,13 @@ if __name__ == "__main__":
         "ip_u": ip,
         "card_number": "1111-1111-1111-1111"
     })
-    print(c_u.text)
+    print("Sent user info to Broker")
 
     # call send_user_certificate
     url = ip_broker + "/send_user_certificate"
     c_u = json.loads(requests.get(url).text)
+
+    print("Received certificate from Broker: ")
     print(json.dumps(c_u, sort_keys=True, indent=4))
 
     # build hash
@@ -82,19 +85,20 @@ if __name__ == "__main__":
         authenticated = True
 
     if authenticated:
+        print("Authorized for chain hash")
         number = 100
         hash_list = generate_hash_chain(number)
-        c0 = hash_list[number - 1]
+        c0 = hash_list[-1]
         date = datetime.datetime.now()
         date = date.strftime("%Y-%m-%d")
         vendor_identity = 'Seller'
 
         hash_commit = SHA1.new()
-        hash_commit.update(vendor_identity.encode())
-        hash_commit.update(json.dumps(c_u).encode())
         hash_commit.update(str(c0).encode())
+        hash_commit.update(json.dumps(c_u).encode())
         hash_commit.update(date.encode())
         hash_commit.update(str(number).encode())
+        hash_commit.update(vendor_identity.encode())
 
         private_key_obj = RSA.import_key(keys[0])
         signer = PKCS1_v1_5.new(private_key_obj)
@@ -113,6 +117,34 @@ if __name__ == "__main__":
         # call check_commit from vendor
 
         url = ip_vendor + "/check_commit"
-        c_u = requests.get(url, params={
-            "commit_v": json.dumps(commit_u, sort_keys=True, indent=4)
-        })
+        requests.get(url, params={
+            "commit_v": json.dumps(commit_u)})
+
+        print("Commit(U) sent to vendor")
+
+        # check if user is authorized to make payments
+        authorized_payments = requests.get(ip_vendor + "/check_if_u_is_authorized_to_make_payments").text
+        print("Authorized is " + authorized_payments)
+
+        if authorized_payments == "True":
+            limit = 0
+            while 1:
+                choice = input("Insert 1 for another payment or 2 for the same")
+
+                if choice == "1":
+                    requests.get(ip_vendor + "/verify_payment_authenticity", params={
+                        "pay": hash_list[-2-limit],  # c0 e la capatul listei, deci -2
+                        "index": limit + 1
+                    })
+
+                    limit += 1
+
+                elif choice == "2":
+                    requests.get(ip_vendor + "/verify_payment_authenticity", params={
+                        "pay": hash_list[-2-limit],
+                        "index": limit
+                    })
+                elif choice == "3":
+                    print("Send end day status to vendor")
+                    requests.get(ip_vendor + "/end_day")
+                    break
