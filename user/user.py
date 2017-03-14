@@ -44,8 +44,8 @@ if __name__ == "__main__":
 
     # get ip
     ip = socket.gethostbyname(socket.gethostname())
-    ip_vendor = "http://192.168.0.10:30045"
-    ip_broker = "http://192.168.0.10:60045"
+    ip_vendor = "http://127.0.0.1:30045"
+    ip_broker = "http://127.0.0.1:60045"
 
     # call receive_user_info
     url = ip_broker + "/receive_user_info"
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         if authorized_payments == "True":
             limit = 0
             while 1:
-                choice = input("Insert 1 for another payment or 2 for the same")
+                choice = input("Insert 1 for another payment or 2 for the same, 3 for redeem, 4 multiple payments")
 
                 if choice == "1":
                     requests.get(ip_vendor + "/verify_payment_authenticity", params={
@@ -148,3 +148,11 @@ if __name__ == "__main__":
                     print("Send end day status to vendor")
                     requests.get(ip_vendor + "/end_day")
                     break
+                elif choice == "4":
+                    nr_payments = input("Insert how many : ")
+
+                    requests.get(ip_vendor + "/verify_payment_authenticity", params={
+                        "pay": hash_list[-1-int(nr_payments) - limit],  # c0 e la capatul listei, deci -2
+                        "index": limit + int(nr_payments)
+                    })
+                    limit += int(nr_payments)

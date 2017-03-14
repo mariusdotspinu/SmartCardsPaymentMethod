@@ -48,9 +48,11 @@ def verify_received_info(commit):
 
     # if all is verified ,then authorized to make payments
 
+    print(commit["date"])
     authenticated = False
     if verifier_c_u.verify(hash_builder_c_u, signature_c_u_decoded) and \
-            verifier_commit_u.verify(hash_builder_commit_u, signature_commit_u_decoded):
+            verifier_commit_u.verify(hash_builder_commit_u, signature_commit_u_decoded) and\
+            commit["c_u"]["exp_date"] > commit["date"]:
 
         authenticated = True
 
@@ -108,7 +110,7 @@ class Vendor(object):
 
     @cherrypy.expose
     def end_day(self):
-        requests.get("http://192.168.0.10:60045/redeem_vendor", params={
+        requests.get("http://127.0.0.1:60045/redeem_vendor", params={
             "commit_u": json.dumps(self.commit_u),
             "last_pay": self.last_pay,
             "last_pay_index": self.last_pay_index
